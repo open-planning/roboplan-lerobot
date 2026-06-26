@@ -1,0 +1,40 @@
+# Usage:
+#   docker compose build
+#   docker compose run roboplan_lerobot
+#   docker exec -it <container> bash
+
+services:
+  roboplan_lerobot:
+    image: roboplan_lerobot:latest
+    build:
+      context: ..
+      dockerfile: roboplan-lerobot/Dockerfile
+      target: roboplan_lerobot
+    init: true
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - HOME=/root
+      - DISPLAY=${DISPLAY}
+      - MUJOCO_GL=egl
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+      - SSH_AUTH_SOCK=/ssh-agent
+    volumes:
+      - ../roboplan:/workspace/roboplan:ro
+      - ./:/workspace/roboplan-lerobot:rw
+      - ./datasets:/workspace/datasets:rw
+      - ./checkpoints:/workspace/checkpoints:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${SSH_AUTH_SOCK}:/ssh-agent
+    command: bash
