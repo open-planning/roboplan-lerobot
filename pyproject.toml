@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "roboplan_lerobot"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "gymnasium>=0.29",
+    "mujoco>=3.0",
+    "numpy>=1.24",
+    "pin>=4.0.0",      # pinocchio — install via: pip install pin
+    "xacro",
+    "viser>=1.0.29",
+    "tyro",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+roboplan_lerobot = ["assets/*.xml"]
