@@ -8,15 +8,22 @@ build:
 	docker compose build
 
 run: _ensure_built
-	UID=$(UID) GID=$(GID) SSH_AUTH_SOCK=$(SSH_AUTH_SOCK) docker compose run --rm roboplan_lerobot bash
+	UID=$(UID) GID=$(GID) SSH_AUTH_SOCK=$(SSH_AUTH_SOCK) docker compose run --rm --service-ports roboplan_lerobot bash
 
 test: _ensure_built
 	UID=$(UID) GID=$(GID) SSH_AUTH_SOCK=$(SSH_AUTH_SOCK) docker compose run --rm roboplan_lerobot python3 -c "\
-import roboplan.core; print('roboplan  ok'); \
-import mujoco;        print('mujoco   ', mujoco.__version__); \
-import lerobot;       print('lerobot   ok'); \
-import torch;         print('torch    ', torch.__version__); \
+import roboplan.core;  print('roboplan  ok'); \
+import mujoco;         print('mujoco    ', mujoco.__version__); \
+import lerobot;        print('lerobot   ok'); \
+import torch;          print('torch     ', torch.__version__); \
 print('cuda:', torch.cuda.is_available()); \
+import gymnasium as gym; \
+import roboplan_lerobot; \
+env = gym.make('roboplan_lerobot/KinovaReach-v0'); \
+obs, _ = env.reset(); \
+obs, reward, terminated, truncated, info = env.step(env.action_space.sample()); \
+env.close(); \
+print('gym env  ok  obs:', obs.shape); \
 "
 
 clean:

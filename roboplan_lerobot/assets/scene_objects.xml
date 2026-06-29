@@ -1,0 +1,50 @@
+<mujoco>
+  <!--
+    Table and pick objects for the Kinova Gen3 pick-and-place scene.
+    Merged into gen3.xml at startup by build_scene_xml().
+
+    The arm base sits at z=0 (world origin), which is the table surface.
+    Objects are placed within the arm's reachable workspace (~0.3-0.6 m in x).
+    Each pick object has a freejoint so it is fully dynamic.
+    mj_resetData() restores all objects to the positions defined here.
+  -->
+
+  <worldbody>
+
+    <!-- Table: 100x100 cm top, 4 cm thick, arm mounts at z=0 -->
+    <body name="table">
+      <geom name="tabletop" type="box" size="0.5 0.5 0.02"
+            pos="0.25 0 -0.02" rgba="0.82 0.71 0.55 1"/>
+      <geom name="leg_fl" type="cylinder" size="0.03 0.35"
+            pos="-0.20 -0.45 -0.39" rgba="0.60 0.50 0.40 1"/>
+      <geom name="leg_fr" type="cylinder" size="0.03 0.35"
+            pos=" 0.70 -0.45 -0.39" rgba="0.60 0.50 0.40 1"/>
+      <geom name="leg_bl" type="cylinder" size="0.03 0.35"
+            pos="-0.20  0.45 -0.39" rgba="0.60 0.50 0.40 1"/>
+      <geom name="leg_br" type="cylinder" size="0.03 0.35"
+            pos=" 0.70  0.45 -0.39" rgba="0.60 0.50 0.40 1"/>
+    </body>
+
+    <!-- 5x5x5 cm cube, 100 g -->
+    <body name="red_cube" pos="0.40 0.15 0.025">
+      <freejoint name="red_cube_joint"/>
+      <geom name="red_cube_geom" type="box" size="0.025 0.025 0.025"
+            rgba="0.85 0.20 0.20 1" mass="0.1"/>
+    </body>
+
+    <!-- cylinder r=2.5 cm h=8 cm, 150 g -->
+    <body name="blue_mug" pos="0.50 -0.12 0.040">
+      <freejoint name="blue_mug_joint"/>
+      <geom name="blue_mug_geom" type="cylinder" size="0.025 0.040"
+            rgba="0.20 0.35 0.85 1" mass="0.15"/>
+    </body>
+
+    <!-- capsule r=2 cm half-length=3 cm, 80 g -->
+    <body name="yellow_capsule" pos="0.35 -0.08 0.050">
+      <freejoint name="yellow_capsule_joint"/>
+      <geom name="yellow_capsule_geom" type="capsule" size="0.02 0.030"
+            rgba="0.90 0.80 0.10 1" mass="0.08"/>
+    </body>
+
+  </worldbody>
+</mujoco>

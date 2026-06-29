@@ -20,6 +20,8 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    ports:
+      - "8080:8080"
     user: "${UID:-1000}:${GID:-1000}"
     environment:
       - HOME=/root
@@ -29,7 +31,6 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - SSH_AUTH_SOCK=/ssh-agent
     volumes:
-      - ../roboplan:/workspace/roboplan:ro
       - ./:/workspace/roboplan-lerobot:rw
       - ./datasets:/workspace/datasets:rw
       - ./checkpoints:/workspace/checkpoints:rw

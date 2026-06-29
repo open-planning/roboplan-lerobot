@@ -62,7 +62,7 @@ ENV MUJOCO_MENAGERIE_PATH=/opt/mujoco_menagerie
 # CUDA 12.4 wheels work with driver >= 550 (Ada Lovelace and newer).
 RUN pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 
-RUN pip3 install lerobot h5py
+RUN pip3 install lerobot h5py pycollada
 
 COPY roboplan-lerobot /workspace/roboplan-lerobot
 WORKDIR /workspace/roboplan-lerobot
