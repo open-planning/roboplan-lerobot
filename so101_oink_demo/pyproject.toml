@@ -1,0 +1,23 @@
+[project]
+name = "so101-oink"
+version = "0.1.0"
+description = "SO-101 MuJoCo pick-cube demo driven by RoboPlan's OInK solver: teleop, action-chunk tracking, barriers"
+requires-python = ">=3.12"
+dependencies = [
+    "mujoco>=3.6",
+    "gymnasium>=1.1",
+    "numpy",
+    "scipy",
+    "mjviser>=0.0.16",
+    "trimesh",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["so101_oink*"]
+
+[tool.setuptools.package-data]
+so101_oink = ["model/*.xml", "model/assets/*.stl"]

@@ -1,0 +1,13 @@
+[project]
+name = "lerobot_robot_so101_oink"
+version = "0.1.0"
+description = "LeRobot robot plugin: SO-101 in MuJoCo whose joint- or Cartesian-space actions are executed by RoboPlan's OInK solver"
+requires-python = ">=3.12"
+dependencies = ["lerobot", "so101-oink", "mujoco>=3.6", "numpy"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lerobot_robot_so101_oink*"]

@@ -1,0 +1,13 @@
+[project]
+name = "lerobot_teleoperator_keyboard_pose"
+version = "0.1.0"
+description = "LeRobot teleoperator plugin: keyboard end-effector pose control (xyz + pitch + roll + gripper)"
+requires-python = ">=3.12"
+dependencies = ["lerobot", "numpy", "scipy", "websockets"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lerobot_teleoperator_keyboard_pose*"]
