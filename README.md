@@ -15,7 +15,7 @@ The sim is plugged in through LeRobot's own `Robot` and `Teleoperator` interface
 
 ```bash
 # install pixi first: https://pixi.sh
-git clone https://github.com/sea-bass/roboplan-lerobot.git
+git clone https://github.com/open-planning/roboplan-lerobot.git
 cd roboplan-lerobot
 pixi install           # RoboPlan from conda-forge, lerobot from PyPI; nothing to compile
 pixi run so101-check   # RoboPlan FK vs. MuJoCo, both OInK loadouts, the table barrier
