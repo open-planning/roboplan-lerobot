@@ -1,0 +1,46 @@
+# roboplan-lerobot: RoboPlan's OInK solver inside a LeRobot imitation learning workflow.
+#
+# One environment: RoboPlan from conda-forge (prebuilt), LeRobot from PyPI, MuJoCo, and the
+# demo's three local packages installed editable. `pixi task list` shows every command;
+# the so101-* tasks run from so101_oink_demo/.
+
+[workspace]
+name = "roboplan-lerobot"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+# RoboPlan's Python bindings (core, OInK, RRT, TOPP-RA, Cartesian planning, example models).
+roboplan-python = ">=0.8.0,<0.9"
+# lerobot 0.7 needs numpy<2.3; pin the conda numpy so the PyPI solve agrees with it.
+numpy = ">=2.0,<2.3"
+# Video encoding/decoding for LeRobot datasets.
+ffmpeg = ">=7"
+
+[pypi-dependencies]
+# dataset = LeRobotDataset deps, training = trackio etc., dataset-viz = rerun,
+# diffusion = diffusers for the diffusion policy
+lerobot = { version = ">=0.7.0,<0.8", extras = ["dataset", "training", "dataset-viz", "diffusion"] }
+so101-oink = { path = "so101_oink_demo", editable = true }
+lerobot-robot-so101-oink = { path = "so101_oink_demo/plugins/so101_oink_robot", editable = true }
+lerobot-teleoperator-keyboard-pose = { path = "so101_oink_demo/plugins/keyboard_pose_teleop", editable = true }
+
+[activation.env]
+# Keep ~/.local site-packages from shadowing the environment.
+PYTHONNOUSERSITE = "1"
+# EGL renders the policy cameras offscreen (fast); the MuJoCo viewer window still opens.
+# On a remote machine, pass `--viewer viser` to the so101-* tasks for a browser viewer.
+MUJOCO_GL = "egl"
+
+[tasks]
+# All run from so101_oink_demo/, so relative paths (data/, outputs/) land there.
+so101-check = { cmd = "python scripts/check_kinematics.py", cwd = "so101_oink_demo", description = "Verify RoboPlan FK matches the MuJoCo model and smoke-test the OInK loadouts" }
+so101-teleoperate = { cmd = "python scripts/teleoperate.py", cwd = "so101_oink_demo", description = "Keyboard EE teleop through OInK (no recording); --action-space joint|cartesian" }
+so101-record = { cmd = "python scripts/record.py", cwd = "so101_oink_demo", description = "Keyboard teleop through OInK -> LeRobotDataset (joint or Cartesian actions)" }
+so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_oink_demo", description = "Scripted expert through OInK -> LeRobotDataset (headless)" }
+# The rerun viewer's default Vulkan surface fails on some machines ("Invalid surface"); GL works.
+so101-viz = { cmd = "lerobot-dataset-viz", cwd = "so101_oink_demo", env = { WGPU_BACKEND = "gl" }, description = "Replay a dataset episode in rerun" }
+so101-train = { cmd = "lerobot-train", cwd = "so101_oink_demo", description = "lerobot-train: diffusion policy or ACT on a recorded dataset" }
+so101-inspect = { cmd = "python scripts/inspect_policy.py", cwd = "so101_oink_demo", description = "Print a trained policy's module tree and parameter counts" }
+so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_oink_demo", description = "Roll out a policy: OInK executes its action chunks; reports success rate" }

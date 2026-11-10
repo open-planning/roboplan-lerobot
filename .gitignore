@@ -1,0 +1,8 @@
+# pixi
+.pixi/
+# demo outputs (datasets, checkpoints, logs)
+so101_oink_demo/data/
+so101_oink_demo/outputs/
+__pycache__/
+*.egg-info/
+*.pyc
