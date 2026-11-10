@@ -146,6 +146,9 @@ pixi run so101-eval --policy-path ... --episodes 10 --show --oink.table_z=0.02
 pixi run so101-eval --policy-path ... --episodes 10 --show --oink.table_barrier=false --oink.self_collision=false
 ```
 
+Diffusion samples each chunk with the 100 DDPM steps it was trained on, about 2 s on a laptop GPU.
+`--num-inference-steps 10` samples with DDIM in 10 steps instead (0.2 s) from the same weights, no retraining; on the 50 evaluation episodes it scores 48 / 50 in both action spaces.
+
 `pixi run so101-inspect --policy-path ...` prints a checkpoint's module tree and parameter counts.
 
 ### Results

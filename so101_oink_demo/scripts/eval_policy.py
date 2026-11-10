@@ -3,6 +3,7 @@
     pixi run so101-eval --policy-path outputs/train/so101_diffusion_joint/checkpoints/last/pretrained_model --episodes 20
     pixi run so101-eval --policy-path ... --show                       # watch (--viewer viser for a browser)
     pixi run so101-eval --policy-path ... --show --oink.table_z=0.02   # change the barriers at rollout time
+    pixi run so101-eval --policy-path ... --num-inference-steps 10     # diffusion: 10 DDIM steps, ~10x faster
 
 The policy's action space is read from the checkpoint (6 outputs = joint,
 10 = Cartesian) and the robot gets the matching OInK loadout. Each action
@@ -12,7 +13,9 @@ limits and barriers, so unsafe outputs are filtered rather than obeyed.
 
 import argparse
 import os
+import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -45,6 +48,12 @@ def main():
     parser.add_argument("--max-ticks", type=int, default=250, help="sim ticks per episode (25/s)")
     parser.add_argument("--show", action="store_true", help="display in the viewer, paced to real time")
     parser.add_argument("--task", default=None, help="override the language instruction")
+    parser.add_argument(
+        "--num-inference-steps",
+        type=int,
+        default=None,
+        help="diffusion: sample with DDIM in this many steps instead of the trained DDPM schedule",
+    )
     add_common_args(parser, action_space=False)
     args = parser.parse_args()
     if not Path(args.policy_path).is_dir():
@@ -52,7 +61,13 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     cfg = PreTrainedConfig.from_pretrained(args.policy_path)
-    policy = get_policy_class(cfg.type).from_pretrained(args.policy_path).to(device).eval()
+    if args.num_inference_steps is not None:
+        if cfg.type != "diffusion":
+            parser.error("--num-inference-steps only applies to diffusion policies")
+        # DDIM reuses the network trained for DDPM's noise schedule, just with larger, deterministic steps.
+        cfg.noise_scheduler_type = "DDIM"
+        cfg.num_inference_steps = args.num_inference_steps
+    policy = get_policy_class(cfg.type).from_pretrained(args.policy_path, config=cfg).to(device).eval()
     preprocessor, postprocessor = make_pre_post_processors(
         cfg, pretrained_path=args.policy_path, preprocessor_overrides={"device_processor": {"device": device}}
     )
@@ -66,7 +81,13 @@ def main():
     )
     robot.connect()
 
-    successes = wrong = 0
+    # Ctrl+C finishes the current tick and then wraps up normally. An exception would leave the
+    # passive MuJoCo viewer thread running, which deadlocks glfw's exit hook; pixi also forwards
+    # the signal, so a second one could land in the middle of the cleanup.
+    stop = threading.Event()
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+
+    successes = wrong = done = 0
     lowest = np.inf
     for ep in range(args.episodes):
         color = args.colors[ep % len(args.colors)]
@@ -74,6 +95,8 @@ def main():
         policy.reset()
         wrong_cube = False
         for tick in range(1, args.max_ticks + 1):
+            if stop.is_set():
+                break
             t0 = time.perf_counter()
             batch = preprocessor(to_batch(robot.get_observation(), device, args.task or TASKS[color]))
             with torch.inference_mode():
@@ -85,14 +108,19 @@ def main():
                 break
             if args.show:
                 time.sleep(max(0.0, 1 / FPS - (time.perf_counter() - t0)))
+        if stop.is_set():
+            print(f"\ninterrupted after {done} episodes")
+            break
+        done += 1
         successes += robot.is_success
         wrong += wrong_cube and not robot.is_success
         outcome = "success" if robot.is_success else ("failure (wrong cube)" if wrong_cube else "failure")
         print(f"episode {ep + 1}/{args.episodes} [{color}]: {outcome} after {tick} ticks")
 
-    print(f"\nsuccess rate: {successes}/{args.episodes} ({100 * successes / args.episodes:.0f}%), wrong cube: {wrong}")
-    print(f"lowest gripper-frame height above the table barrier: {lowest * 1e3:+.1f} mm, "
-          f"solver failures: {robot.controller.solver_failures}")  # fmt: skip
+    if done:
+        print(f"\nsuccess rate: {successes}/{done} ({100 * successes / done:.0f}%), wrong cube: {wrong}")
+        print(f"lowest gripper-frame height above the table barrier: {lowest * 1e3:+.1f} mm, "
+              f"solver failures: {robot.controller.solver_failures}")  # fmt: skip
     robot.disconnect()
     # Skip interpreter teardown: torch and the roboplan bindings unload in an order that
     # makes nanobind print a spurious "leaked instances" report on a normal exit.
