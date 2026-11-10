@@ -1,7 +1,7 @@
 """Box collision geometry for the self-collision barrier.
 
 The barrier needs link-to-link *distances* at every solver step, and the mesh
-collision geometry of the roboplan SO-101 URDF makes that query cost ~100 ms.
+collision geometry of the RoboPlan SO-101 URDF makes that query cost ~100 ms.
 Boxes cost microseconds, so the URDF is rewritten on load: each arm link's
 collision meshes become their bounding boxes (in the link frame), and the
 gripper and moving jaw take the hand-fitted boxes of the MuJoCo model, whose

@@ -41,7 +41,7 @@ Extra arguments are passed through.
 pixi run so101-check
 ```
 
-checks that RoboPlan's forward kinematics of the roboplan SO-101 URDF matches the MuJoCo gripper frame, that both loadouts converge, and that the table barrier holds.
+checks that RoboPlan's forward kinematics of the RoboPlan SO-101 URDF matches the MuJoCo gripper frame, that both loadouts converge, and that the table barrier holds.
 
 **Remote machines**: add `--viewer viser` to any task to get a browser viewer instead of the MuJoCo window; the script prints the URL and keyboard teleop works from the browser tab.
 
@@ -83,8 +83,8 @@ pixi run so101-record --repo-id you/so101_pick_cart --root data/pick_cart --epis
 A scripted expert produces the same datasets headlessly (about two minutes per 100 episodes); `--show-viewer` watches it:
 
 ```bash
-pixi run so101-collect --repo-id you/so101_pick_joint --root data/pick_joint --episodes 100
-pixi run so101-collect --repo-id you/so101_pick_cart --root data/pick_cart --episodes 100 --action-space cartesian
+pixi run so101-collect --repo-id you/so101_pick_joint --root data/pick_joint --episodes 100 --perturb 0.5
+pixi run so101-collect --repo-id you/so101_pick_cart --root data/pick_cart --episodes 100 --perturb 0.5 --action-space cartesian
 ```
 
 The expert never misses, so a dataset of clean picks teaches no recovery: a policy that fumbles a grasp hovers instead of trying again.
@@ -112,7 +112,21 @@ pixi run so101-train \
 Swap `pick_joint` for `pick_cart` (and the job name) for the Cartesian policy.
 Trackio keeps the loss curves in a local database (no account needed); `pixi run trackio show --project so101_oink` opens the dashboard.
 Diffusion uses about 6.3 GB of VRAM at batch 16 and runs at 4 steps/s on a laptop RTX 5070, so 10k steps take about 40 minutes.
-`--policy.type=act` trains ACT on the same datasets (2.3 GB, 9 steps/s).
+
+ACT trains on the same datasets (2.3 GB, 9 steps/s) with two changes to LeRobot's defaults.
+`--policy.n_action_steps=10` replans every 0.4 s instead of executing the whole 100-step chunk open loop (4 s at 25 Hz), so the policy can react to a fumbled grasp.
+The preset optimizer is a constant 1e-5 learning rate sized for 100k-step runs; this gives ACT the same warmup-and-cosine schedule diffusion uses, which converges in 10k.
+
+```bash
+pixi run so101-train \
+    --dataset.repo_id=you/so101_pick_joint --dataset.root=data/pick_joint \
+    --policy.type=act --policy.n_action_steps=10 --policy.device=cuda --policy.push_to_hub=false \
+    --use_policy_training_preset=false --optimizer.type=adamw --optimizer.lr=1e-4 --optimizer.weight_decay=1e-4 \
+    --scheduler.type=diffuser --scheduler.name=cosine --scheduler.num_warmup_steps=500 \
+    --output_dir=outputs/train/so101_act_joint --job_name=so101_act_joint \
+    --batch_size=16 --steps=10000 --save_freq=2500 \
+    --trackio.enable=true --trackio.project=so101_oink
+```
 
 ## 4. Roll it out
 
@@ -136,28 +150,25 @@ pixi run so101-eval --policy-path ... --episodes 10 --show --oink.table_barrier=
 
 ### Results
 
-Diffusion policies evaluated on 50 held-out seeded episodes each. The gripper frame never went below the table barrier and the solver never failed in any run.
+Both policies trained on 100 perturbed demonstrations for 10k steps and evaluated on the same 50 held-out seeded episodes.
+The gripper frame never crossed the table barrier, and the solver failed on 1 of 50,000 ticks and held the previous command.
 
-| action space | demos x steps | success |
+| policy | action space | success |
 |---|---|---|
-| joint | 100 x 10k | 45 / 50 (90%) |
-| joint | 100 x 25k | 47 / 50 (94%) |
-| joint | 300 x 10k | 45 / 50 (90%) |
-| joint | 300 x 25k | 46 / 50 (92%) |
-| cartesian | 100 x 10k | 48 / 50 (96%) |
-| cartesian | 300 x 10k | 46 / 50 (92%) |
-| joint | 100 x 10k, `--perturb 0.5` | 48 / 50 (96%) |
-| cartesian | 100 x 10k, `--perturb 0.5` | 49 / 50 (98%) |
+| diffusion | joint | 48 / 50 (96%) |
+| diffusion | cartesian | 50 / 50 (100%) |
+| ACT | joint | 39 / 50 (78%) |
+| ACT | cartesian | 42 / 50 (84%) |
 
-100 demonstrations and 10k steps (about 40 minutes on an 8 GB laptop GPU) are enough for this task; more data or more steps stay within evaluation noise.
-Success climbs between 5k and 7.5k steps, so there is little point in evaluating earlier checkpoints.
-The remaining failures are fumbled grasps the policy never retries, which is what the perturbed demonstrations address.
+Diffusion success climbs between 5k and 7.5k steps and more demonstrations or steps stay within evaluation noise; ACT is still improving at 10k (72% / 66% at 7.5k).
+Without the perturbed demonstrations diffusion loses a few more episodes to fumbled grasps it never retries.
 `--resume=true --config_path=outputs/train/<job>/checkpoints/last/pretrained_model/train_config.json` continues a run.
 
 ## Notes
 
 - The SO-101 has five joints, so teleop and expert targets are *yaw-coupled* ([`ee_target.py`](../so101_oink_demo/so101_oink/ee_target.py)): the orientation target follows the direction of the target position plus the pitch and roll offsets, and the `FrameTask` weighs position 10x more than orientation.
 - The self-collision barrier needs link distances every step, and mesh geometry makes that cost ~100 ms. [`collision_model.py`](../so101_oink_demo/so101_oink/collision_model.py) rewrites the URDF's collision geometry as boxes on load (~30 µs per solve).
-- roboplan's barriers default to a safe-displacement damping term that is far larger than the task weights for an arm this small; the controller sets it to 0.
-- Scripts that leave background threads running until exit (dataset writers, torch) end with a harmless `nanobind: leaked N instances!` line from the bindings.
+- RoboPlan's barriers default to a safe-displacement damping term that is far larger than the task weights for an arm this small; the controller sets it to 0.
+- The task gain is 0.25 per 10 ms solver step. The default of 1 is dead-beat: each 25 Hz policy action is reached in the first solver step and then held, and the arm visibly shakes during rollouts; 0.25 spreads the motion over the tick at no cost in success.
+- Scripts that leave background threads running until exit (dataset writers, torch) end with a harmless `nanobind: leaked N instances!` report from the bindings; the eval script skips interpreter teardown (`os._exit`) to avoid it.
 - The MuJoCo model (jaw collision pads, elliptic friction cone, gripper close speed) comes from [robot-learning-101](https://github.com/sea-bass/robot-learning-101), where those choices are explained.

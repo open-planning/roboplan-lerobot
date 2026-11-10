@@ -11,6 +11,8 @@ limits and barriers, so unsafe outputs are filtered rather than obeyed.
 """
 
 import argparse
+import os
+import sys
 import time
 from pathlib import Path
 
@@ -92,6 +94,10 @@ def main():
     print(f"lowest gripper-frame height above the table barrier: {lowest * 1e3:+.1f} mm, "
           f"solver failures: {robot.controller.solver_failures}")  # fmt: skip
     robot.disconnect()
+    # Skip interpreter teardown: torch and the roboplan bindings unload in an order that
+    # makes nanobind print a spurious "leaked instances" report on a normal exit.
+    sys.stdout.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":

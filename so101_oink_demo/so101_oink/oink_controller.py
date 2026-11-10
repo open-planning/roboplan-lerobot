@@ -58,6 +58,10 @@ class OinkConfig:
     control_freq: float = 100.0
     # Joint velocity cap (rad/s).
     max_joint_velocity: float = 3.0
+    # Fraction of the remaining task error closed per solver step. 1.0 is dead-beat:
+    # a new 25 Hz target is reached in the first 10 ms step and the arm then holds,
+    # which turns policy actions into a visible staircase; 0.25 spreads it over the tick.
+    task_gain: float = 0.25
     # FrameTask weights. Position dominates: a 5-DOF arm cannot reach arbitrary
     # orientations, so orientation is tracked as well as the kinematics allow.
     position_cost: float = 1.0
@@ -71,7 +75,7 @@ class OinkConfig:
 
 
 def build_scene() -> Scene:
-    """RoboPlan scene of the SO-101 from the URDF, SRDF and limits shipped with roboplan."""
+    """RoboPlan scene of the SO-101 from the URDF, SRDF and limits shipped with RoboPlan."""
     share_dir = get_package_share_dir()
     urdf = box_collision_urdf(MODEL_DIR / "so101.urdf", share_dir)
     scene = Scene("so101", loadUrdfSceneDescriptionFromXml(urdf, [share_dir]))
@@ -109,7 +113,7 @@ class OinkController:
         self.constraints = [PositionLimit(self.oink), VelocityLimit(self.oink, self.dt, v_max)]
 
         # Barriers are control barrier functions: inequality constraints that limit how fast
-        # the arm may approach a boundary as a function of its distance to it. roboplan's
+        # the arm may approach a boundary as a function of its distance to it. RoboPlan's
         # default safe_displacement_gain (1.0) adds a damping term far larger than the task
         # weights for this small arm, so it is zeroed to keep the barriers pure constraints.
         self.barriers = []
@@ -143,7 +147,7 @@ class OinkController:
         q_group = self.home_q[self.oink.q_indices]
         if action_space == "joint":
             self.config_task = ConfigurationTask(
-                self.oink, q_group, np.ones(nv), ConfigurationTaskOptions(task_gain=1.0, lm_damping=0.01)
+                self.oink, q_group, np.ones(nv), ConfigurationTaskOptions(task_gain=cfg.task_gain, lm_damping=0.01)
             )
             self.frame_task = None
             self.tasks = [self.config_task]
@@ -151,7 +155,7 @@ class OinkController:
             self.frame_task = FrameTask(
                 self.oink, self.scene, CartesianConfiguration("base_link", EE_FRAME, np.eye(4)),
                 FrameTaskOptions(
-                    position_cost=cfg.position_cost, orientation_cost=cfg.orientation_cost,
+                    position_cost=cfg.position_cost, orientation_cost=cfg.orientation_cost, task_gain=cfg.task_gain,
                     lm_damping=1.0, position_saturation=0.05, orientation_saturation=0.5,
                 ),
             )  # fmt: skip

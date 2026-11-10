@@ -1,6 +1,6 @@
 """Sanity checks for the RoboPlan <-> MuJoCo pairing (run this first):  pixi run so101-check
 
-1. RoboPlan's FK of the roboplan SO-101 URDF matches the MuJoCo gripper frame.
+1. RoboPlan's FK of the RoboPlan SO-101 URDF matches the MuJoCo gripper frame.
 2. Both OInK loadouts converge, each in ~30 us per step.
 3. The table barrier stops the gripper frame at z = table_z even when the
    target is far below the table.
